@@ -60,6 +60,18 @@ button{font:inherit;color:inherit;cursor:pointer}
 .toast{background:#101316ee;border:1.5px solid #38e05a;padding:7px 14px;border-radius:20px;font-size:13px;animation:tin .2s}
 .toast.bad{border-color:#ff4d4d;color:#ffb0b0}.toast.out{opacity:0;transition:opacity .4s}
 @keyframes tin{from{transform:translateY(-8px);opacity:0}}
+
+#intro{position:fixed;inset:0;z-index:50;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:34px;text-align:center;padding:24px;background:radial-gradient(ellipse at 50% 30%,#2a3641 0%,#0e1114 72%);transition:opacity .6s,visibility .6s;cursor:pointer}
+#intro.hide{opacity:0;visibility:hidden;pointer-events:none}
+.ibox{display:flex;flex-direction:column;align-items:center;gap:18px}
+.rb{display:inline-block;margin:0;background:linear-gradient(90deg,#ff2d2d,#ff9500,#ffe600,#2bdc5b,#1ea7ff,#5a5cff,#c04bff,#ff2d2d);background-size:200% 100%;-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent;animation:rbm 3.5s linear infinite;filter:drop-shadow(0 0 12px #ffffff2a)}
+@keyframes rbm{to{background-position:200% 0}}
+#intro h1{font-size:clamp(36px,11vw,68px);line-height:1.08;font-weight:900;letter-spacing:.02em}
+#intro .own{font-size:clamp(16px,5vw,26px);font-weight:800;letter-spacing:.04em}
+#intro .bar{height:8px;width:min(72%,340px);border-radius:8px;background:linear-gradient(90deg,#ff2d2d 0 14.28%,#ff9500 0 28.57%,#ffe600 0 42.85%,#2bdc5b 0 57.14%,#1ea7ff 0 71.42%,#5a5cff 0 85.71%,#c04bff 0)}
+#go{border:2px solid #ffffff66;background:#ffffff14;color:#fff;padding:12px 28px;border-radius:30px;font-size:14px;font-weight:800;letter-spacing:.14em;animation:pls 1.6s ease-in-out infinite}
+@keyframes pls{50%{transform:scale(1.07);border-color:#fff}}
+@media (prefers-reduced-motion:reduce){.rb,#go{animation:none}}
 </style></head><body>
 <div id="app">
 <div id="view"><canvas id="cv"></canvas>
@@ -72,6 +84,7 @@ button{font:inherit;color:inherit;cursor:pointer}
 <div id="ign"><div id="key"><i></i></div><div id="st">Start</div><span id="ignl">OFF</span></div></div>
 <div class="r2"><div class="ped" id="pc"><div class="f"></div><b>Clutch</b></div><div id="shift"></div><div class="ped b" id="pb"><div class="f"></div><b>Brake</b></div><div class="ped g" id="pg"><div class="f"></div><b>Accelerator</b></div></div>
 </div></div>
+<div id="intro"><div class="ibox"><h1 class="rb">Manual Car<br>Simulator</h1><div class="bar"></div><p class="rb own">Owner: Nguyen Quang Dung</p></div><button id="go">▶ TAP TO START</button></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
 const $=s=>document.querySelector(s),clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
@@ -109,13 +122,13 @@ function hold(el,on,off){el.addEventListener('pointerdown',e=>{audio();on();e.pr
 hold($('#sL'),()=>L=1,()=>L=0);hold($('#sR'),()=>Rr=1,()=>Rr=0);
 hold($('#st'),()=>{if(!ign)say('Turn the key ON first.',1);stBtn=1},()=>stBtn=0);
 $('#key').onclick=()=>{audio();toggleIgn()};
-function toggleIgn(){ign=!ign;if(!ign&&running){running=false;say('Engine off.')}}
+function toggleIgn(){ign=!ign;sfx('click');if(!ign&&running){running=false;say('Engine off.')}}
 $('#bHand').onclick=()=>togHand();
 $('#bSlope').onclick=()=>{slope=slope===0?.06:slope===.06?.1:0;$('#bSlope').textContent='Slope '+Math.round(slope*100)+'%';$('#bSlope').classList.toggle('on',slope>0);regrade()};
 $('#bSnd').onclick=()=>{sound=!sound;$('#bSnd').classList.toggle('on',sound)};
 $('#bReset').onclick=()=>{reset();regrade()};
 const keys={};
-addEventListener('keydown',e=>{audio();if(['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.code))e.preventDefault();
+addEventListener('keydown',e=>{if(introOn){startGame();e.preventDefault();return}audio();if(['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.code))e.preventDefault();
 if(e.repeat)return;keys[e.code]=1;
 if(e.code==='KeyI'){toggleIgn()}
 if(e.code==='KeyE'){if(!ign)say('Turn the key ON first (I).',1)}
@@ -124,11 +137,6 @@ const m=e.code.match(/^Digit(\d)$/);if(m){const n=+m[1];if(n>=1&&n<=6)shift(n);i
 if(e.code==='KeyR')shift('R');if(e.code==='KeyN')shift('N')});
 addEventListener('keyup',e=>{keys[e.code]=0});
 const kd=(...c)=>c.some(x=>keys[x]);
-let AC,osc,o2,gn,fl;
-function audio(){if(AC){AC.resume();return}try{AC=new(window.AudioContext||webkitAudioContext)();osc=AC.createOscillator();osc.type='sawtooth';o2=AC.createOscillator();o2.type='square';fl=AC.createBiquadFilter();fl.type='lowpass';gn=AC.createGain();gn.gain.value=0;osc.connect(fl);o2.connect(fl);fl.connect(gn);gn.connect(AC.destination);osc.start();o2.start()}catch(e){AC=null}}
-function snd(){if(!AC)return;const rpm=we*9.549,on=sound&&(running||starter&&ign),f=clamp(rpm/30,12,320),t=AC.currentTime;
-osc.frequency.setTargetAtTime(f,t,.03);o2.frequency.setTargetAtTime(f/2,t,.03);fl.frequency.setTargetAtTime(250+rpm*.35+P.g.v*500,t,.05);
-gn.gain.setTargetAtTime(on?.04+.07*P.g.v+(rpm>5500?.03:0):0,t,.05)}
 const curveAt=s=>Math.min(1,s/300)*(3.2e-4*Math.sin(s/420)+1.6e-4*Math.sin(s/170+1));
 function phys(dt){
 const G=RAT[gear]*FD,cp=P.c.v,s=clamp((.62-cp)/.34,0,1),e=s*s*(3-2*s);
@@ -279,19 +287,88 @@ function shift(g){if(g===gear)return;const mv=Math.abs(v)>.8;
 if(P.c.v<.8&&(running||mv||starter)){say('Gear Grind - Press Clutch to Shift',1);sfx('grind');return}
 if(g==='R'&&v>.8){say('Stop before selecting Reverse',1);sfx('grind');return}
 gear=g;knob();sfx('click')}
-let AX,E1,E2,EG,EF,NB,pr=false;
-function audio(){if(AX){AX.resume();return}try{AX=new(window.AudioContext||webkitAudioContext)();EF=AX.createBiquadFilter();EF.type='lowpass';EG=AX.createGain();EG.gain.value=0;E1=AX.createOscillator();E1.type='sawtooth';E2=AX.createOscillator();E2.type='square';const g2=AX.createGain();g2.gain.value=.45;E1.connect(EF);E2.connect(g2);g2.connect(EF);EF.connect(EG);EG.connect(AX.destination);E1.start();E2.start();
-NB=AX.createBuffer(1,AX.sampleRate,AX.sampleRate);const d=NB.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1}catch(e){AX=null}}
-function sfx(k){if(!AX||!sound)return;const t=AX.currentTime,g=AX.createGain();g.connect(AX.destination);
-if(k==='grind'||k==='click'){const s=AX.createBufferSource();s.buffer=NB;s.loop=true;const f=AX.createBiquadFilter();f.type='bandpass';f.frequency.value=k==='grind'?1800:500;f.Q.value=3;s.connect(f);f.connect(g);const d=k==='grind'?.4:.06;g.gain.setValueAtTime(k==='grind'?.35:.25,t);g.gain.exponentialRampToValueAtTime(.001,t+d);s.start(t);s.stop(t+d+.05);
-if(k==='grind'){const o=AX.createOscillator();o.type='sawtooth';o.frequency.setValueAtTime(95,t);o.frequency.setValueAtTime(125,t+.1);o.frequency.setValueAtTime(80,t+.2);o.connect(g);o.start(t);o.stop(t+.4)}}
-else{const o=AX.createOscillator(),[a,b,d,vl]=k==='catch'?[70,230,.3,.2]:k==='stall'?[110,30,.7,.25]:[90,40,.4,.15];o.type=k==='stall'?'sawtooth':'square';o.frequency.setValueAtTime(a,t);o.frequency.exponentialRampToValueAtTime(b,t+d);g.gain.setValueAtTime(vl,t);g.gain.exponentialRampToValueAtTime(.001,t+d);o.connect(g);o.start(t);o.stop(t+d+.05)}}
-function snd(){if(!AX)return;const rpm=we*9.549,t=AX.currentTime,th=P.g.v,cr=starter&&ign&&!running;
-if(running&&!pr)sfx('catch');if(!running&&pr)sfx(ign?'stall':'off');pr=running;
-const f=cr?10+rpm/40:clamp(rpm/30,12,330);E1.frequency.setTargetAtTime(f,t,.025);E2.frequency.setTargetAtTime(f*2.01,t,.025);
-EF.frequency.setTargetAtTime(cr?420:220+rpm*.28+th*(300+rpm*.2),t,.04);
-const lv=running?.05+.07*th*clamp(rpm/3000,.4,1.5)+.04*clamp(rpm/7000,0,1):cr?.09*(.55+.45*Math.sin(performance.now()*.035)):0;
-EG.gain.setTargetAtTime(sound?lv:0,t,.035)}
+let introOn=true;
+function startGame(){if(!introOn)return;introOn=false;const i=$('#intro');i.classList.add('hide');setTimeout(()=>i.style.display='none',700);audio()}
+$('#intro').addEventListener('click',startGame);
+/* ===== ENGINE AUDIO (tổng hợp thời gian thực) ===== */
+let AX,EN={},NB,PB,pr=false,pc=false,boost=0,lastS=0;
+function audio(){if(AX){AX.resume();return}try{AX=new(window.AudioContext||webkitAudioContext)();buildSnd()}catch(e){AX=null}}
+document.addEventListener('visibilitychange',()=>{if(AX){document.hidden?AX.suspend():AX.resume()}});
+function buildSnd(){
+const sr=AX.sampleRate;
+NB=AX.createBuffer(1,sr,sr);{const d=NB.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1}
+PB=AX.createBuffer(1,sr*3,sr);{const d=PB.getChannelData(0);let a=0,b=0,c=0;for(let i=0;i<d.length;i++){const w=Math.random()*2-1;a=.99765*a+w*.099046;b=.963*b+w*.2965164;c=.57*c+w*1.0526913;d[i]=(a+b+c+w*.1848)*.22}}
+const mk=(t,f,q,g)=>{const n=AX.createBiquadFilter();n.type=t;n.frequency.value=f;if(q!=null)n.Q.value=q;if(g!=null)n.gain.value=g;return n};
+const gn=x=>{const g=AX.createGain();g.gain.value=x;return g};
+const nz=(buf,off)=>{const s=AX.createBufferSource();s.buffer=buf;s.loop=true;s.start(0,off*buf.duration);return s};
+const wave=(n,fn)=>{const re=new Float32Array(n+1),im=new Float32Array(n+1);for(let k=1;k<=n;k++){const c=fn(k);re[k]=c[0];im[k]=c[1]}return AX.createPeriodicWave(re,im)};
+const osc=(w,f)=>{const o=AX.createOscillator();o.setPeriodicWave(w);o.frequency.value=f;o.start();return o};
+/* master + compressor */
+EN.mg=gn(0);const cp=AX.createDynamicsCompressor();cp.threshold.value=-22;cp.knee.value=20;cp.ratio.value=5;cp.attack.value=.004;cp.release.value=.18;EN.mg.connect(cp);cp.connect(AX.destination);
+/* xung nổ xả: chuỗi hài giàu bội âm, tần số = tốc độ nổ của động cơ 4 xi-lanh (rpm/30) */
+const w1=wave(48,k=>[Math.pow(k,-.75)*(k%2?1:1.3),.35*Math.pow(k,-.95)]);
+const w2=wave(24,k=>[Math.pow(k,-1.1),.5*Math.pow(k,-1.3)]);
+EN.o1=osc(w1,30);EN.o2=osc(w1,30);EN.o3=osc(w2,15);
+const bus=gn(1),g2=gn(.55),g3=gn(.4);EN.o1.connect(bus);EN.o2.connect(g2);g2.connect(bus);EN.o3.connect(g3);g3.connect(bus);
+EN.lp=mk('lowpass',800,1.4);EN.pk1=mk('peaking',110,1.2,5);EN.pk2=mk('peaking',480,1,3);EN.pre=gn(1);
+const ws=AX.createWaveShaper(),cv2=new Float32Array(1024);for(let i=0;i<1024;i++){const x=i/1023*2-1;cv2[i]=Math.tanh(x*1.8)/Math.tanh(1.8)}ws.curve=cv2;ws.oversample='2x';
+EN.eg=gn(0);bus.connect(EN.lp);EN.lp.connect(EN.pk1);EN.pk1.connect(EN.pk2);EN.pk2.connect(EN.pre);EN.pre.connect(ws);ws.connect(EN.eg);EN.eg.connect(EN.mg);
+/* tiếng hút gió */
+EN.bp=mk('bandpass',600,.8);EN.ig=gn(0);nz(PB,.1).connect(EN.bp);EN.bp.connect(EN.ig);EN.ig.connect(EN.mg);
+/* tiếng ống xả trầm */
+const lr=mk('lowpass',170,.7);EN.rg=gn(0);nz(PB,.4).connect(lr);lr.connect(EN.rg);EN.rg.connect(EN.mg);
+/* tiếng tích tắc cò van */
+const tk=mk('bandpass',3200,1.2);EN.kg=gn(0);nz(NB,0).connect(tk);tk.connect(EN.kg);EN.kg.connect(EN.mg);
+/* tiếng lốp + gió theo tốc độ */
+EN.rb=mk('bandpass',400,.7);EN.tg=gn(0);nz(PB,.7).connect(EN.rb);EN.rb.connect(EN.tg);EN.tg.connect(EN.mg);
+/* mô-tơ đề */
+EN.os=AX.createOscillator();EN.os.type='sawtooth';EN.os.frequency.value=100;const sl=mk('lowpass',1300,.8);EN.sg=gn(0);EN.os.connect(sl);sl.connect(EN.sg);EN.sg.connect(EN.mg);EN.os.start()}
+/* hiệu ứng một lần */
+function env(vol,dur,t){const g=AX.createGain();g.gain.setValueAtTime(vol,t);g.gain.exponentialRampToValueAtTime(.0008,t+dur);g.connect(EN.mg);return g}
+function tone(type,a,b,dur,vol,t){const o=AX.createOscillator(),g=env(vol,dur,t);o.type=type;o.frequency.setValueAtTime(a,t);o.frequency.exponentialRampToValueAtTime(b,t+dur);o.connect(g);o.start(t);o.stop(t+dur+.05)}
+function burst(type,fq,q,dur,vol,t){const s=AX.createBufferSource(),f=AX.createBiquadFilter(),g=env(vol,dur,t);s.buffer=NB;s.loop=true;f.type=type;f.frequency.value=fq;f.Q.value=q;s.connect(f);f.connect(g);s.start(t);s.stop(t+dur+.05)}
+function sfx(k){if(!AX||!sound||!EN.mg)return;const t=AX.currentTime;
+if(k==='click'){burst('bandpass',500,3,.06,.25,t);tone('square',180,90,.05,.07,t)}
+else if(k==='grind'){burst('bandpass',1800,3,.4,.35,t);tone('sawtooth',130,70,.4,.12,t);tone('square',97,83,.4,.07,t)}
+else if(k==='clunk'){tone('square',140,45,.18,.2,t);burst('lowpass',300,1,.12,.18,t)}
+else if(k==='catch'){burst('bandpass',500,.8,.35,.25,t);tone('sawtooth',60,180,.3,.1,t)}
+else if(k==='stall'){tone('sawtooth',90,28,.5,.16,t);burst('lowpass',200,1,.3,.18,t);tone('square',70,30,.25,.13,t+.2)}
+else{tone('square',110,40,.25,.12,t)}}
+function snd(){if(!AX||!EN.mg)return;
+const t=AX.currentTime,now=performance.now(),dt=Math.min(.1,(now-lastS)/1000||.016);lastS=now;
+const rpm=we*9.549,th=P.g.v,sp=Math.abs(v),cr=!!(starter&&ign&&!running),off=Math.abs(px)>1.05;
+if(running&&!pr){sfx('catch');boost=1}
+if(!running&&pr)sfx(ign?'stall':'off');
+if(cr&&!pc)sfx('clunk');
+pr=running;pc=cr;boost*=Math.exp(-dt*4);
+/* tần số nổ + dao động nhẹ cho tiếng "sống" ở cầm chừng */
+const jit=running?1+(Math.random()-.5)*(.016*(1-clamp(rpm/4000,0,1))+.002):1,fr=clamp(rpm/30,6,340)*jit;
+EN.o1.frequency.setTargetAtTime(fr,t,.03);EN.o2.frequency.setTargetAtTime(fr*1.0035,t,.03);EN.o3.frequency.setTargetAtTime(fr*.5,t,.03);
+/* âm lượng tiếng máy */
+let lv=0;
+if(running)lv=.18+.16*th*clamp(rpm/3000,.45,1.5)+.06*clamp(rpm/7000,0,1);
+else if(cr)lv=.2;
+else if(rpm>60)lv=.08*clamp(rpm/800,0,1);
+if(running&&th<.04&&rpm>1800)lv*=.72;
+lv*=1+.5*boost;
+if(running&&rpm>6700&&th>.35)lv*=((now/55)|0)%2?.3:1;
+const cut=cr?700:running?300+rpm*.4+th*(300+rpm*.25):260+rpm*.2;
+EN.lp.frequency.setTargetAtTime(cut,t,.05);
+EN.pre.gain.setTargetAtTime(running?1+1.4*th:1,t,.06);
+EN.eg.gain.setTargetAtTime(lv,t,.035);
+/* hút gió, xả, cò van */
+EN.bp.frequency.setTargetAtTime(280+rpm*.45,t,.06);
+EN.ig.gain.setTargetAtTime(running?.012+.075*th*clamp(rpm/4500,.2,1.3):0,t,.06);
+EN.rg.gain.setTargetAtTime(running?(.02+.05*clamp(rpm/3500,0,1))*(.4+.6*th):0,t,.06);
+EN.kg.gain.setTargetAtTime(running?.004+.008*clamp(rpm/6000,0,1):0,t,.06);
+/* lốp + gió */
+const sk=clamp(sp/45,0,1);
+EN.rb.frequency.setTargetAtTime(200+sp*14,t,.1);
+EN.tg.gain.setTargetAtTime((sk*.07+sk*sk*.06)*(off?1.7:1),t,.1);
+/* mô-tơ đề */
+EN.os.frequency.setTargetAtTime(cr?85+rpm*.45:60,t,.05);
+EN.sg.gain.setTargetAtTime(cr?.03*(.75+.25*Math.sin(now*.05)):0,t,.04);
+EN.mg.gain.setTargetAtTime(sound?.9:0,t,.05)}
 try{init3d();ok=true}catch(err){$('#msg').textContent='3D could not start: '+err.message;msgT=Infinity}
 reset();let last=performance.now();
 (function loop(t){const dt=Math.min(.05,(t-last)/1000);last=t;frame(dt,t);requestAnimationFrame(loop)})(last);
