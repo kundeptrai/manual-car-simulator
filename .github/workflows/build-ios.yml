@@ -1,0 +1,51 @@
+name: Build iOS IPA
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Find iOS project
+        id: p
+        run: echo "dir=$(dirname "$(find . -name project.yml | head -n1)")" >> $GITHUB_OUTPUT
+
+      - name: Use the same game file as the Android app
+        run: |
+          SRC=$(find . -path '*src/main/assets/index.html' | head -n1)
+          if [ -n "$SRC" ]; then cp "$SRC" "${{ steps.p.outputs.dir }}/Resources/index.html"; fi
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        working-directory: ${{ steps.p.outputs.dir }}
+        run: xcodegen generate
+
+      - name: Build (unsigned)
+        working-directory: ${{ steps.p.outputs.dir }}
+        run: |
+          xcodebuild -project ManualCarSimulator.xcodeproj \
+            -scheme ManualCarSimulator \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+            build
+
+      - name: Package IPA
+        working-directory: ${{ steps.p.outputs.dir }}
+        run: |
+          mkdir Payload
+          cp -R build/Build/Products/Release-iphoneos/ManualCarSimulator.app Payload/
+          zip -qry ManualCarSimulator-unsigned.ipa Payload
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ManualCarSimulator-ipa
+          path: ${{ steps.p.outputs.dir }}/ManualCarSimulator-unsigned.ipa
